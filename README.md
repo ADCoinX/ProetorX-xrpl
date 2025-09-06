@@ -1,9 +1,11 @@
 # PX – ProetorX Wallet Validator
 
 ![PX Logo](static/px-logo.png)  
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ADCoinX_proetorx-xrpl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ADCoinX_proetorx-xrpl)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ADCoinX_proetorx-xrpl&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ADCoinX_proetorx-xrpl)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ADCoinX_proetorx-xrpl&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ADCoinX_proetorx-xrpl)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=ADCoinX_proetorx-xrpl&metric=bugs)](https://sonarcloud.io/summary/new_code?id=ADCoinX_proetorx-xrpl)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=ADCoinX_proetorx-xrpl&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=ADCoinX_proetorx-xrpl)
 
 ---
 
