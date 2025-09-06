@@ -3,10 +3,10 @@ import json
 import os
 
 METRICS_FILE = "metrics.json"
+START_TIME_FILE = "uptime.txt"
 
 def sanitize_wallet_input(wallet):
-    # Basic XRPL wallet input sanitization (case sensitive!)
-    wallet = wallet.strip()  # HANYA buang whitespace, jangan tukar case!
+    wallet = wallet.strip()
     if len(wallet) == 34 and wallet.startswith("r"):
         return wallet
     return None
@@ -24,7 +24,6 @@ def log_event(wallet, score):
                 metrics = []
     entry = {
         "timestamp": time.time(),
-        "wallet": wallet,
         "score": score,
         "duration": 0.2 # stub duration
     }
@@ -34,6 +33,22 @@ def log_event(wallet, score):
         json.dump(metrics, f)
 
 def get_metrics():
+    health_status = "online"
+    uptime = 0
+    # Track uptime
+    if os.path.exists(START_TIME_FILE):
+        with open(START_TIME_FILE, "r") as f:
+            try:
+                start_time = float(f.read().strip())
+                uptime = int(time.time() - start_time)
+            except Exception:
+                uptime = 0
+    else:
+        # Save start time on first run
+        with open(START_TIME_FILE, "w") as f:
+            f.write(str(time.time()))
+        uptime = 0
+
     if os.path.exists(METRICS_FILE):
         with open(METRICS_FILE, "r") as f:
             metrics = json.load(f)
@@ -41,11 +56,13 @@ def get_metrics():
         metrics = []
     total = len(metrics)
     avg_time = sum(m["duration"] for m in metrics) / total if total > 0 else 0
-    last_5 = metrics[-5:]
+
+    # No wallet address exposed
     return {
+        "status": health_status,
+        "uptime_sec": uptime,
         "total_validations": total,
-        "average_response_time": avg_time,
-        "last_5_wallets": last_5
+        "average_response_time": avg_time
     }
 
 def log_error(msg):
