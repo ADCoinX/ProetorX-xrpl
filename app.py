@@ -1,4 +1,3 @@
-# app.py
 from __future__ import annotations
 
 import os
@@ -6,7 +5,13 @@ import re
 from io import BytesIO
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse, StreamingResponse, JSONResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    FileResponse,
+    StreamingResponse,
+    JSONResponse,
+    Response,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -20,10 +25,10 @@ import uvicorn
 
 app = FastAPI(
     title="PX – ProetorX Wallet Validator",
-    description="XRPL Wallet Validation powered by ADC CryptoGuard"
+    description="XRPL Wallet Validation powered by ADC CryptoGuard",
 )
 
-# ---- CORS (tighten if you have known origins) ----
+# ---- CORS (boleh ketatkan ikut domain kau) ----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,26 +36,31 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# ---- Minimal security headers ----
+# ---- Security headers + CSP (allow inline script & same-origin fetch) ----
 @app.middleware("http")
 async def security_headers_mw(request: Request, call_next):
     resp: Response = await call_next(request)
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
-    # loosen CSP if you load external resources
-    resp.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';")
+    resp.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self';"
+    )
     return resp
 
 xrpl_handler = XRPLHandler()
 
 # ---------- Pages & Static ----------
-# Serve index (constant path; not user-controlled)
 @app.get("/", response_class=HTMLResponse)
 def index():
     return FileResponse(os.path.join("templates", "index.html"))
 
-# Hardened static serving (prevents path traversal)
+# hardened static serving
 app.mount("/static", StaticFiles(directory="static", html=False), name="static")
 
 @app.get("/healthz")
@@ -64,10 +74,8 @@ async def validate_wallet(request: Request):
     Input:  { "wallet": "r..." }
     Output: {
       "wallet": "...",
-      "xrpl": {
-         "ok": bool, "funded": bool, "balance_xrp": float, "balance_drops": int,
-         "owner_count": int, "flags": int, "api_used": "..."
-      },
+      "xrpl": { "ok": bool, "funded": bool, "balance_xrp": float, "balance_drops": int,
+                "owner_count": int, "flags": int, "api_used": "..." },
       "risk_score": { "score": int, "level": str, "reasons": [...] },
       "rwa_status": { "status": "in-development" }
     }
@@ -98,7 +106,7 @@ async def validate_wallet(request: Request):
 async def export_iso(request: Request):
     """
     Input:  { "wallet": "r..." }
-    Returns a downloadable ISO20022 pain.001 XML file.
+    Returns: pain.001 XML as file download (amount = current balance_xrp best-effort)
     """
     data = await request.json()
     wallet_raw = data.get("wallet", "")
@@ -106,7 +114,7 @@ async def export_iso(request: Request):
     if not wallet:
         raise HTTPException(status_code=400, detail="Invalid XRPL address.")
 
-    # Get balance (best-effort)
+    # best-effort balance
     try:
         xrpl = xrpl_handler.validate_wallet(wallet)
         balance_xrp = float(xrpl.get("balance_xrp", 0.0))
@@ -120,9 +128,9 @@ async def export_iso(request: Request):
 
     buf = BytesIO(xml_str.encode("utf-8"))
 
-    # Safe filename (whitelist)
+    # safe filename
     safe_wallet = re.sub(r"[^A-Za-z0-9_-]", "_", wallet)[:40]
-    filename = f"pain001_{safe_wallet}.xml"
+    filename = f"pain001_${safe_wallet}.xml".replace("$", "")  # extra hardening
 
     return StreamingResponse(
         buf,
