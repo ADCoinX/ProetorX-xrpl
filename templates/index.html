@@ -1,114 +1,189 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-    <meta charset="UTF-8">
-    <title>ProetorX Wallet Validator</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="/static/px-logo.png">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>ProetorX Wallet Validator</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="/static/px-logo.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-    <header>
-        <img src="/static/px-logo.png" alt="PX Logo" id="logo">
-        <h1>PX – ProetorX Wallet Validator</h1>
-        <p class="subtitle">Verified First, Trusted Later</p>
-    </header>
-    <main>
-        <section id="wallet-section" class="card">
-            <form id="wallet-form" autocomplete="off">
-                <label for="wallet" class="wallet-label">XRPL Wallet Address</label>
-                <div class="input-row">
-                    <input type="text" id="wallet" name="wallet" maxlength="34" placeholder="r...">
-                    <button type="submit" id="validate-btn">Validate Wallet</button>
-                    <button type="button" id="iso-btn">Export ISO XML</button>
-                    <button type="button" id="rwa-btn" disabled>RWA Check (coming soon)</button>
-                </div>
-                <div id="form-result"></div>
-            </form>
-        </section>
-        <section id="results-section" class="card">
-            <h2>Validation Results</h2>
-            <div id="risk-score"></div>
-            <div id="flags"></div>
-            <div id="balance"></div>
-            <div id="tx-count"></div>
-            <div id="rwa-status"></div>
-        </section>
-        <section id="metrics-section" class="card">
-            <h2>Metrics Dashboard</h2>
-            <div id="total-validations"></div>
-            <div id="avg-response-time"></div>
-            <div id="last-wallets"></div>
-        </section>
-        <section class="disclaimer">
-            <h3>Disclaimer</h3>
-            <p>
-                This tool validates XRPL wallet addresses and provides a risk score based on public blockchain data.<br>
-                <b>PX does NOT store private keys or sensitive wallet info.</b><br>
-                All results are for informational purposes only and not financial advice. Always verify before trusting.
-            </p>
-        </section>
-    </main>
-    <footer>
-        Powered by ADC CryptoGuard &bull; No sensitive data stored &bull; PX Wallet Validator © 2025
-    </footer>
-    <script>
-        // Handle validation
-        document.getElementById('wallet-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const wallet = document.getElementById('wallet').value.trim();
-            const result = document.getElementById('form-result');
-            result.textContent = '';
-            if (!wallet.startsWith('r') || wallet.length !== 34) {
-                result.innerHTML = '<span class="error">Invalid wallet format. Must start with "r" and be 34 characters.</span>';
-                return;
-            }
-            document.getElementById('validate-btn').disabled = true;
-            try {
-                const res = await fetch('/validate', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({wallet})
-                });
-                if (!res.ok) {
-                    const err = await res.json();
-                    result.innerHTML = `<span class="error">${err.detail || "Validation failed."}</span>`;
-                } else {
-                    const data = await res.json();
-                    document.getElementById('risk-score').innerText = "Risk Score: " + (data.risk_score?.score ?? '-');
-                    document.getElementById('flags').innerText = "Flags: " + (data.xrpl?.flags ?? '-');
-                    document.getElementById('balance').innerText = "Balance: " + (data.xrpl?.balance ?? '-');
-                    document.getElementById('tx-count').innerText = "Transactions: " + (data.xrpl?.tx_count ?? '-');
-                    document.getElementById('rwa-status').innerText = "RWA: " + (data.rwa_status?.status ?? '-');
-                    result.innerHTML = `<span class="success">Wallet validated successfully.</span>`;
-                    updateMetrics();
-                }
-            } catch (ex) {
-                result.innerHTML = `<span class="error">Server error: ${ex.message}</span>`;
-            }
-            document.getElementById('validate-btn').disabled = false;
-        };
-        document.getElementById('iso-btn').onclick = async () => {
-            const wallet = document.getElementById('wallet').value.trim();
-            if (!wallet.startsWith('r') || wallet.length !== 34) {
-                alert("Invalid wallet format for ISO export.");
-                return;
-            }
-            const res = await fetch('/export_iso', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({wallet})
-            });
-            const data = await res.json();
-            alert("ISO 20022 XML:\n" + data.iso_xml);
-        };
-        async function updateMetrics() {
-            const res = await fetch('/metrics');
-            const data = await res.json();
-            document.getElementById('total-validations').innerText = "Total Validations: " + data.total_validations;
-            document.getElementById('avg-response-time').innerText = "Avg Response Time: " + data.average_response_time.toFixed(2) + "s";
-            document.getElementById('last-wallets').innerHTML = "<b>Last 5 Wallets:</b><ul>" +
-                data.last_5_wallets.map(x => `<li><code>${x.wallet}</code> &ndash; Score: <b>${x.score}</b></li>`).join('') + "</ul>";
+  <header>
+    <img src="/static/px-logo.png" alt="PX Logo" id="logo">
+    <h1>ProetorX Wallet Validator</h1>
+    <p class="subtitle">Verified First, Trusted Later</p>
+  </header>
+
+  <main>
+    <!-- Wallet form -->
+    <section id="wallet-section" class="card">
+      <form id="wallet-form" autocomplete="off">
+        <label for="wallet" class="wallet-label">XRPL Wallet Address</label>
+        <div class="input-row">
+          <input type="text" id="wallet" name="wallet" placeholder="r..." spellcheck="false" autocapitalize="none" autocomplete="off">
+          <button type="submit" id="validate-btn">Validate Wallet</button>
+          <button type="button" id="iso-btn">Export ISO XML</button>
+          <button type="button" id="rwa-btn" disabled>RWA Check (coming soon)</button>
+        </div>
+        <div id="form-result"></div>
+      </form>
+    </section>
+
+    <!-- Results -->
+    <section id="results-section" class="card">
+      <h2>Validation Results</h2>
+      <div id="risk-score">Risk Score: -</div>
+      <div id="flags">Flags: -</div>
+      <div id="balance">Balance: -</div>
+      <div id="tx-count">Transactions: -</div>
+      <div id="rwa-status">RWA: in-development</div>
+    </section>
+
+    <!-- Metrics -->
+    <section id="metrics-section" class="card">
+      <h2>Metrics Dashboard</h2>
+      <div id="total-validations">Total Validations: -</div>
+      <div id="avg-response-time">Avg Response Time: -</div>
+      <div id="last-wallets"></div>
+    </section>
+
+    <section class="disclaimer">
+      <h3>Disclaimer</h3>
+      <p>
+        This tool validates XRPL wallet addresses and provides a risk score based on public blockchain data.<br>
+        <b>PX does NOT store private keys or sensitive wallet info.</b><br>
+        All results are for informational purposes only and not financial advice. Always verify before trusting.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    Powered by ADC CryptoGuard &bull; No sensitive data stored &bull; PX Wallet Validator © 2025
+  </footer>
+
+  <script>
+    // ===== Helpers =====
+    const fmtXRP = (v) => {
+      if (v === null || v === undefined) return "-";
+      const n = Number(v);
+      return Number.isFinite(n) ? `${n.toFixed(6)} XRP` : "-";
+    };
+    const fmtInt = (v) => {
+      if (v === null || v === undefined) return "-";
+      const n = Number(v);
+      return Number.isFinite(n) ? String(Math.trunc(n)) : "-";
+    };
+    const isXRPLAddr = (a) => {
+      if (!a || a[0] !== "r") return false;
+      const len = a.length;
+      // classic XRPL address biasanya 25–35 chars (base58)
+      return len >= 25 && len <= 35;
+    };
+
+    // ===== Form submit: /validate =====
+    document.getElementById('wallet-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const wallet = document.getElementById('wallet').value.trim();
+      const result = document.getElementById('form-result');
+      result.textContent = "";
+
+      if (!isXRPLAddr(wallet)) {
+        result.innerHTML = '<span class="error">Invalid XRPL address. Must start with "r" and be ~25–35 chars.</span>';
+        return;
+      }
+
+      document.getElementById('validate-btn').disabled = true;
+      try {
+        const res = await fetch('/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet })
+        });
+
+        if (!res.ok) {
+          let msg = "Validation failed.";
+          try { const e = await res.json(); msg = e.detail || msg; } catch {}
+          result.innerHTML = `<span class="error">${msg}</span>`;
+        } else {
+          const data = await res.json();
+
+          // ---- Map fields dari backend (sokong nama lama & baru) ----
+          const risk = data.risk_score?.score ?? data.risk_score ?? null;
+
+          const xrpl = data.xrpl || {};
+          const balanceXrp =
+            xrpl.balance_xrp ??  // preferred (float in XRP)
+            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null); // fallback jika backend hantar drops
+
+          const flags = xrpl.flags ?? null;
+          // owner_count = bilangan objek (trust line/offer), bukan jumlah tx
+          const txCount = xrpl.tx_count ?? xrpl.owner_count ?? null;
+
+          // ---- Render ke UI (0 kekal 0, bukan '-') ----
+          document.getElementById('risk-score').innerText = "Risk Score: " + (risk ?? "-");
+          document.getElementById('flags').innerText = "Flags: " + (flags ?? "-");
+          document.getElementById('balance').innerText = "Balance: " + fmtXRP(balanceXrp);
+          document.getElementById('tx-count').innerText = "Transactions: " + fmtInt(txCount);
+          document.getElementById('rwa-status').innerText = "RWA: " + (data.rwa_status?.status ?? "in-development");
+
+          result.innerHTML = '<span class="success">Wallet validated successfully.</span>';
+
+          // refresh metrics
+          await updateMetrics();
         }
-        updateMetrics();
-    </script>
+      } catch (ex) {
+        result.innerHTML = `<span class="error">Server error: ${ex.message}</span>`;
+      }
+      document.getElementById('validate-btn').disabled = false;
+    };
+
+    // ===== ISO export =====
+    document.getElementById('iso-btn').onclick = async () => {
+      const wallet = document.getElementById('wallet').value.trim();
+      if (!isXRPLAddr(wallet)) {
+        alert("Invalid wallet format for ISO export.");
+        return;
+      }
+      const res = await fetch('/export_iso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wallet })
+      });
+      const data = await res.json();
+      alert("ISO 20022 XML:\n" + (data.iso_xml || "<empty>"));
+    };
+
+    // ===== Metrics =====
+    async function updateMetrics() {
+      try {
+        const res = await fetch('/metrics');
+        if (!res.ok) return;
+        const m = await res.json();
+
+        // sokong kedua-dua bentuk: baru (snapshot) & lama
+        const total = m.total ?? m.total_validations ?? 0;
+        const avgSec = (m.avg_response_ms !== undefined)
+            ? (Number(m.avg_response_ms) / 1000)
+            : (m.average_response_time ?? 0);
+
+        document.getElementById('total-validations').innerText = "Total Validations: " + total;
+        document.getElementById('avg-response-time').innerText = "Avg Response Time: " + (Number(avgSec).toFixed(2)) + "s";
+
+        const last = m.last ?? m.last_5_wallets ?? [];
+        const listHtml = Array.isArray(last) && last.length
+          ? "<b>Last (anonymized if enabled):</b><ul>" +
+              last.map(x => {
+                const w = x.addr ?? x.wallet ?? "-";
+                const s = (x.score === 0 || typeof x.score === "number") ? x.score : (x.score ?? "-");
+                return `<li><code>${w}</code> – Score: <b>${s}</b></li>`;
+              }).join("") + "</ul>"
+          : "<b>Last:</b> <em>empty</em>";
+        document.getElementById('last-wallets').innerHTML = listHtml;
+      } catch {
+        // biar senyap kalau metrics endpoint tak wujud
+      }
+    }
+    updateMetrics();
+  </script>
 </body>
 </html>
