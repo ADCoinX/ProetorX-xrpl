@@ -5,8 +5,8 @@ import os
 METRICS_FILE = "metrics.json"
 
 def sanitize_wallet_input(wallet):
-    # Basic XRPL wallet input sanitization
-    wallet = wallet.upper().strip()
+    # Basic XRPL wallet input sanitization (case sensitive!)
+    wallet = wallet.strip()  # HANYA buang whitespace, jangan tukar case!
     if len(wallet) == 34 and wallet.startswith("r"):
         return wallet
     return None
