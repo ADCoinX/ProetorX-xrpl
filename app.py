@@ -1,151 +1,136 @@
+# utils.py
 from __future__ import annotations
+import json, os, time, tempfile
 
-import os
-import re
-from io import BytesIO
+METRICS_FILE = "metrics.json"
+START_TIME_FILE = "uptime.txt"
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import (
-    HTMLResponse,
-    FileResponse,
-    StreamingResponse,
-    JSONResponse,
-    Response,
-)
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+# ---------- Helpers ----------
+def _atomic_write(path: str, data: dict) -> None:
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix="pxm_", suffix=".json")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f)
+        os.replace(tmp_path, path)
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
 
-from xrpl_handler import XRPLHandler
-from risk_engine import score_wallet_risk
-from iso_export import generate_iso20022_xml
-from rwa_handler import rwa_check
-from utils import log_event, get_metrics, sanitize_wallet_input
-
-import uvicorn
-
-app = FastAPI(
-    title="PX – ProetorX Wallet Validator",
-    description="XRPL Wallet Validation powered by ADC CryptoGuard",
-)
-
-# ---- CORS (boleh ketatkan ikut domain kau) ----
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
-)
-
-# ---- Security headers + CSP (allow inline script & same-origin fetch) ----
-@app.middleware("http")
-async def security_headers_mw(request: Request, call_next):
-    resp: Response = await call_next(request)
-    resp.headers.setdefault("X-Frame-Options", "DENY")
-    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resp.headers.setdefault("Referrer-Policy", "no-referrer")
-    resp.headers.setdefault(
-        "Content-Security-Policy",
-        "default-src 'self'; "
-        "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "connect-src 'self';"
-    )
-    return resp
-
-xrpl_handler = XRPLHandler()
-
-# ---------- Pages & Static ----------
-@app.get("/", response_class=HTMLResponse)
-def index():
-    return FileResponse(os.path.join("templates", "index.html"))
-
-# hardened static serving
-app.mount("/static", StaticFiles(directory="static", html=False), name="static")
-
-@app.get("/healthz")
-def healthz():
-    return {"ok": True}
-
-# ---------- API ----------
-@app.post("/validate")
-async def validate_wallet(request: Request):
+def _load_metrics() -> dict:
     """
-    Input:  { "wallet": "r..." }
-    Output: {
-      "wallet": "...",
-      "xrpl": { "ok": bool, "funded": bool, "balance_xrp": float, "balance_drops": int,
-                "owner_count": int, "flags": int, "api_used": "..." },
-      "risk_score": { "score": int, "level": str, "reasons": [...] },
-      "rwa_status": { "status": "in-development" }
+    Return shape:
+    {
+      "total": int,                 # cumulative, unbounded
+      "sum_duration": float,        # ms
+      "recent": [ { "ts": float, "score": int, "dur": float } ]  # last N only
     }
     """
-    data = await request.json()
-    wallet_raw = data.get("wallet", "")
-    wallet = sanitize_wallet_input(wallet_raw)
+    if not os.path.exists(METRICS_FILE):
+        return {"total": 0, "sum_duration": 0.0, "recent": []}
+
+    with open(METRICS_FILE, "r") as f:
+        raw = json.load(f)
+
+    # v2 shape already dict
+    if isinstance(raw, dict) and "total" in raw:
+        raw.setdefault("sum_duration", 0.0)
+        raw.setdefault("recent", [])
+        return raw
+
+    # v1 legacy (list of entries capped 50) -> migrate
+    if isinstance(raw, list):
+        total = len(raw)  # legacy only counted last 50; start from this baseline
+        sum_dur = sum(float(e.get("duration", 0.0)) for e in raw)
+        recent = [
+            {"ts": float(e.get("timestamp", time.time())),
+             "score": int(e.get("score", 0)),
+             "dur": float(e.get("duration", 0.0))}
+            for e in raw[-100:]
+        ]
+        return {"total": int(total), "sum_duration": float(sum_dur), "recent": recent}
+
+    # fallback safe
+    return {"total": 0, "sum_duration": 0.0, "recent": []}
+
+# ---------- Public API ----------
+def sanitize_wallet_input(wallet: str | None):
     if not wallet:
-        raise HTTPException(status_code=400, detail="Invalid wallet address.")
+        return None
+    wallet = wallet.strip()
+    # XRPL classic addr biasanya 25–35 aksara, bermula 'r'
+    if wallet.startswith("r") and 25 <= len(wallet) <= 35:
+        return wallet
+    return None
 
-    xrpl_data = xrpl_handler.validate_wallet(wallet)
-    risk = score_wallet_risk(xrpl_data)
-    rwa_status = rwa_check(wallet)
+def rotate_fallback(index, total):
+    return (index + 1) % max(1, total)
 
-    try:
-        log_event(wallet, risk)
-    except Exception:
-        pass
+def log_event(wallet, score, duration_ms: float = 200.0):
+    """
+    Record one validation:
+      - total (cumulative, unbounded)
+      - sum_duration (ms)
+      - keep only last 100 items in 'recent'
+    NOTE: we intentionally DO NOT store wallet to avoid leaking addresses.
+    """
+    m = _load_metrics()
+    m["total"] = int(m.get("total", 0)) + 1
+    m["sum_duration"] = float(m.get("sum_duration", 0.0)) + float(duration_ms or 0.0)
+
+    recent = m.get("recent", [])
+    recent.append({
+        "ts": time.time(),
+        "score": (score.get("score") if isinstance(score, dict) else score) or 0,
+        "dur": float(duration_ms or 0.0),
+    })
+    # keep window only; DOES NOT affect total
+    m["recent"] = recent[-100:]
+
+    _atomic_write(METRICS_FILE, m)
+
+def get_metrics():
+    """
+    Returns stable snapshot for frontend.
+    Shape:
+      {
+        "status": "online",
+        "uptime_sec": int,
+        "total": int,
+        "avg_response_ms": float,
+        "last": [ { "ts": float, "score": int } ]   # last up to 5
+      }
+    """
+    # uptime
+    if os.path.exists(START_TIME_FILE):
+        try:
+            with open(START_TIME_FILE, "r") as f:
+                start_time = float(f.read().strip())
+        except Exception:
+            start_time = time.time()
+    else:
+        start_time = time.time()
+        with open(START_TIME_FILE, "w") as f:
+            f.write(str(start_time))
+
+    m = _load_metrics()
+    total = int(m.get("total", 0))
+    sum_duration = float(m.get("sum_duration", 0.0))
+    avg_ms = (sum_duration / total) if total else 0.0
+
+    recent = m.get("recent", [])
+    # Only expose last 5 items & no wallet address
+    last5 = [{"ts": e.get("ts"), "score": e.get("score")} for e in recent[-5:]]
 
     return {
-        "wallet": wallet,
-        "xrpl": xrpl_data,
-        "risk_score": risk,
-        "rwa_status": rwa_status,
+        "status": "online",
+        "uptime_sec": int(time.time() - start_time),
+        "total": total,
+        "avg_response_ms": avg_ms,
+        "last": last5
     }
 
-@app.post("/export_iso")
-async def export_iso(request: Request):
-    """
-    Input:  { "wallet": "r..." }
-    Returns: pain.001 XML as file download (amount = current balance_xrp best-effort)
-    """
-    data = await request.json()
-    wallet_raw = data.get("wallet", "")
-    wallet = sanitize_wallet_input(wallet_raw)
-    if not wallet:
-        raise HTTPException(status_code=400, detail="Invalid XRPL address.")
-
-    # best-effort balance
-    try:
-        xrpl = xrpl_handler.validate_wallet(wallet)
-        balance_xrp = float(xrpl.get("balance_xrp", 0.0))
-    except Exception:
-        balance_xrp = 0.0
-
-    try:
-        xml_str = generate_iso20022_xml(wallet, balance_xrp)
-    except TypeError:
-        xml_str = generate_iso20022_xml(wallet)
-
-    buf = BytesIO(xml_str.encode("utf-8"))
-
-    # safe filename
-    safe_wallet = re.sub(r"[^A-Za-z0-9_-]", "_", wallet)[:40]
-    filename = f"pain001_${safe_wallet}.xml".replace("$", "")  # extra hardening
-
-    return StreamingResponse(
-        buf,
-        media_type="application/xml",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-    )
-
-@app.get("/metrics")
-def metrics():
-    try:
-        return JSONResponse(get_metrics())
-    except Exception as e:
-        return JSONResponse({"total": 0, "avg_response_ms": 0, "last": [], "error": str(e)})
-
-# ---------- Entrypoint ----------
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+def log_error(msg):
+    print(f"[PX-ERROR] {msg}")
