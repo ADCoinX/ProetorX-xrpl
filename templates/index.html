@@ -22,7 +22,6 @@
   </header>
 
   <main>
-    <!-- Wallet form -->
     <section id="wallet-section" class="card">
       <form id="wallet-form" autocomplete="off">
         <label for="wallet" class="wallet-label">XRPL Wallet Address</label>
@@ -36,7 +35,6 @@
       </form>
     </section>
 
-    <!-- Results -->
     <section id="results-section" class="card">
       <h2>Validation Results</h2>
       <div id="risk-score">Risk Score: -</div>
@@ -46,7 +44,6 @@
       <div id="rwa-status">RWA: in-development</div>
     </section>
 
-    <!-- Metrics -->
     <section id="metrics-section" class="card">
       <h2>Metrics Dashboard</h2>
       <div id="total-validations">Total Validations: -</div>
@@ -70,79 +67,52 @@
 
   <script>
     // ===== Helpers =====
-    const fmtXRP = (v) => {
-      if (v === null || v === undefined) return "-";
-      const n = Number(v);
-      return Number.isFinite(n) ? `${n.toFixed(6)} XRP` : "-";
-    };
-    const fmtInt = (v) => {
-      if (v === null || v === undefined) return "-";
-      const n = Number(v);
-      return Number.isFinite(n) ? String(Math.trunc(n)) : "-";
-    };
-    const isXRPLAddr = (a) => {
-      if (!a || a[0] !== "r") return false;
-      const len = a.length;
-      return len >= 25 && len <= 35;
-    };
+    const fmtXRP = (v) => (v==null? "-" : (Number.isFinite(+v) ? `${(+v).toFixed(6)} XRP` : "-"));
+    const fmtInt = (v) => (v==null? "-" : (Number.isFinite(+v) ? String(Math.trunc(+v)) : "-"));
+    const isXRPLAddr = (a) => !!a && a[0]==="r" && a.length>=25 && a.length<=35;
 
-    // Risk score → kategori + badge + ikon
-    function riskBadge(score) {
-      if (score === null || score === undefined || isNaN(score)) return " -";
-      const s = Number(score);
-      let cls = "low", label = "Low Risk", icon = "✅";
-      if (s > 60) { cls = "high"; label = "High Risk"; icon = "⛔"; }
-      else if (s > 20) { cls = "med"; label = "Medium Risk"; icon = "⚠️"; }
-      return `${s} <span class="badge ${cls}">${icon} ${label}</span>`;
+    function riskBadge(score){
+      if(score==null||isNaN(score)) return " -";
+      const s = +score;
+      if (s>60) return `${s} <span class="badge high">⛔ High Risk</span>`;
+      if (s>20) return `${s} <span class="badge med">⚠️ Medium Risk</span>`;
+      return `${s} <span class="badge low">✅ Low Risk</span>`;
     }
 
-    // Flags bitmask → chips
-    function flagsChips(flags) {
-      if (flags === null || flags === undefined || isNaN(flags)) return "-";
-      const f = Number(flags);
-      const chips = [];
-      if (f & 0x00020000) chips.push("DefaultRipple");   // 131072
-      if (f & 0x00010000) chips.push("RequireDestTag");  // 65536
-      if (f & 0x00080000) chips.push("DisallowXRP");     // 524288
-      if (f & 0x00400000) chips.push("GlobalFreeze");    // 4194304
-      if (!chips.length) return String(f);
-      return `${f} ` + chips.map(c => `<span class="flag-chip">${c}</span>`).join("");
+    function flagsChips(flags){
+      if(flags==null||isNaN(flags)) return "-";
+      const f = +flags, chips=[];
+      if (f & 0x00020000) chips.push("DefaultRipple");
+      if (f & 0x00010000) chips.push("RequireDestTag");
+      if (f & 0x00080000) chips.push("DisallowXRP");
+      if (f & 0x00400000) chips.push("GlobalFreeze");
+      return chips.length ? `${f} ` + chips.map(c=>`<span class="flag-chip">${c}</span>`).join("") : String(f);
     }
 
-    // ===== Form submit: /validate =====
-    document.getElementById('wallet-form').onsubmit = async (e) => {
+    // ===== Submit: /validate =====
+    document.getElementById('wallet-form').onsubmit = async (e)=>{
       e.preventDefault();
       const wallet = document.getElementById('wallet').value.trim();
       const result = document.getElementById('form-result');
       result.textContent = "";
-
-      if (!isXRPLAddr(wallet)) {
+      if(!isXRPLAddr(wallet)){
         result.innerHTML = '<span class="error">Invalid XRPL address. Must start with "r" and be ~25–35 chars.</span>';
         return;
       }
-
       document.getElementById('validate-btn').disabled = true;
-      try {
+      try{
         const res = await fetch('/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet })
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({wallet})
         });
-
-        if (!res.ok) {
-          let msg = "Validation failed.";
-          try { const e = await res.json(); msg = e.detail || msg; } catch {}
+        if(!res.ok){
+          let msg="Validation failed."; try{const e=await res.json(); msg=e.detail||msg;}catch{}
           result.innerHTML = `<span class="error">${msg}</span>`;
-        } else {
+        }else{
           const data = await res.json();
-
           const riskVal = data.risk_score?.score ?? data.risk_score ?? null;
-
           const xrpl = data.xrpl || {};
-          const balanceXrp =
-            xrpl.balance_xrp ??
-            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null);
-
+          const balanceXrp = xrpl.balance_xrp ?? (xrpl.balance!==undefined ? (+xrpl.balance/1_000_000) : null);
           const flags = xrpl.flags ?? null;
           const txCount = xrpl.tx_count ?? xrpl.owner_count ?? null;
 
@@ -153,73 +123,63 @@
           document.getElementById('rwa-status').innerText = "RWA: " + (data.rwa_status?.status ?? "in-development");
 
           result.innerHTML = '<span class="success">Wallet validated successfully.</span>';
-
           await updateMetrics();
         }
-      } catch (ex) {
+      }catch(ex){
         result.innerHTML = `<span class="error">Server error: ${ex.message}</span>`;
       }
       document.getElementById('validate-btn').disabled = false;
     };
 
-    // ===== ISO export (tiada amount; guna balance semasa) =====
-    document.getElementById('iso-btn').onclick = async () => {
+    // ===== ISO export =====
+    document.getElementById('iso-btn').onclick = async ()=>{
       const wallet = document.getElementById('wallet').value.trim();
-      if (!isXRPLAddr(wallet)) {
-        alert("Invalid wallet format for ISO export.");
-        return;
-      }
-      try {
+      if(!isXRPLAddr(wallet)){ alert("Invalid wallet format for ISO export."); return; }
+      try{
         const res = await fetch('/export_iso', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet })
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({wallet})
         });
-        if (!res.ok) {
-          try { const e = await res.json(); alert(e.detail || "Export failed"); }
-          catch { alert("Export failed"); }
-          return;
-        }
+        if(!res.ok){ try{const e=await res.json(); alert(e.detail||"Export failed");}catch{alert("Export failed");} return; }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = "";
-        document.body.appendChild(a); a.click(); a.remove();
+        const a = document.createElement('a'); a.href=url; a.download=""; document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
-      } catch (e) {
-        alert("Export failed: " + e.message);
-      }
+      }catch(e){ alert("Export failed: " + e.message); }
     };
 
     // ===== Metrics =====
-    async function updateMetrics() {
-      try {
-        const res = await fetch('/metrics');
-        if (!res.ok) return;
+    async function updateMetrics(){
+      try{
+        const res = await fetch('/metrics'); if(!res.ok) return;
         const m = await res.json();
-
         const total = m.total ?? m.total_validations ?? 0;
-        const avgSec = (m.avg_response_ms !== undefined)
-            ? (Number(m.avg_response_ms) / 1000)
-            : (m.average_response_time ?? 0);
-
+        const avgSec = (m.avg_response_ms!==undefined) ? (+m.avg_response_ms/1000) : (m.average_response_time ?? 0);
         document.getElementById('total-validations').innerText = "Total Validations: " + total;
-        document.getElementById('avg-response-time').innerText = "Avg Response Time: " + (Number(avgSec).toFixed(2)) + "s";
-
+        document.getElementById('avg-response-time').innerText = "Avg Response Time: " + (+avgSec).toFixed(2) + "s";
         const last = m.last ?? m.last_5_wallets ?? [];
-        const listHtml = Array.isArray(last) && last.length
-          ? "<b>Last (anonymized if enabled):</b><ul>" +
-              last.map(x => {
-                const w = x.addr ?? x.wallet ?? "-";
-                const s = (x.score === 0 || typeof x.score === "number") ? x.score : (x.score ?? "-");
-                return `<li><code>${w}</code> – Score: <b>${s}</b></li>`;
-              }).join("") + "</ul>"
+        const listHtml = Array.isArray(last)&&last.length
+          ? "<b>Last (anonymized if enabled):</b><ul>" + last.map(x=>{
+              const w = x.addr ?? x.wallet ?? "-";
+              const s = (x.score===0 || typeof x.score==="number") ? x.score : (x.score ?? "-");
+              return `<li><code>${w}</code> – Score: <b>${s}</b></li>`;
+            }).join("") + "</ul>"
           : "<b>Last:</b> <em>empty</em>";
         document.getElementById('last-wallets').innerHTML = listHtml;
-      } catch { }
+      }catch{}
     }
     updateMetrics();
+
+    // === Auto-validate from URL (?wallet=...) ===
+    document.addEventListener('DOMContentLoaded', ()=>{
+      try{
+        const params = new URL(location.href).searchParams;
+        const w = (params.get('wallet')||'').trim();
+        if(w && isXRPLAddr(w)){
+          document.getElementById('wallet').value = w;
+          document.getElementById('wallet-form').dispatchEvent(new Event('submit', {cancelable:true, bubbles:true}));
+        }
+      }catch{}
+    });
   </script>
 </body>
 </html>
