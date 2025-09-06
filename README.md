@@ -1,7 +1,9 @@
 # PX – ProetorX Wallet Validator
 
 ![PX Logo](static/px-logo.png)  
-[![SonarCloud Status](https://sonarcloud.io/api/project_badges/measure?project=ProetorX)](https://sonarcloud.io/dashboard?id=ProetorX)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusriadib_proetorx-xrpl&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusriadib_proetorx-xrpl)
 
 ---
 
