@@ -76,7 +76,7 @@
     const isXRPLAddr = (a) => {
       if (!a || a[0] !== "r") return false;
       const len = a.length;
-      // classic XRPL address biasanya 25–35 chars (base58)
+      // classic XRPL address 25–35 chars (base58)
       return len >= 25 && len <= 35;
     };
 
@@ -112,14 +112,14 @@
 
           const xrpl = data.xrpl || {};
           const balanceXrp =
-            xrpl.balance_xrp ??  // preferred (float in XRP)
-            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null); // fallback jika backend hantar drops
+            xrpl.balance_xrp ??  // preferred (XRP float)
+            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null); // fallback drops→XRP
 
           const flags = xrpl.flags ?? null;
-          // owner_count = bilangan objek (trust line/offer), bukan jumlah tx
+          // Note: OwnerCount ≠ total transactions; ini objek dimiliki (trustlines/offers)
           const txCount = xrpl.tx_count ?? xrpl.owner_count ?? null;
 
-          // ---- Render ke UI (0 kekal 0, bukan '-') ----
+          // ---- Render (0 kekal 0) ----
           document.getElementById('risk-score').innerText = "Risk Score: " + (risk ?? "-");
           document.getElementById('flags').innerText = "Flags: " + (flags ?? "-");
           document.getElementById('balance').innerText = "Balance: " + fmtXRP(balanceXrp);
@@ -137,20 +137,35 @@
       document.getElementById('validate-btn').disabled = false;
     };
 
-    // ===== ISO export =====
+    // ===== ISO export (tiada amount; guna balance semasa) =====
     document.getElementById('iso-btn').onclick = async () => {
       const wallet = document.getElementById('wallet').value.trim();
       if (!isXRPLAddr(wallet)) {
         alert("Invalid wallet format for ISO export.");
         return;
       }
-      const res = await fetch('/export_iso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet })
-      });
-      const data = await res.json();
-      alert("ISO 20022 XML:\n" + (data.iso_xml || "<empty>"));
+      try {
+        const res = await fetch('/export_iso', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet })
+        });
+        if (!res.ok) {
+          try { const e = await res.json(); alert(e.detail || "Export failed"); }
+          catch { alert("Export failed"); }
+          return;
+        }
+        // Backend set Content-Disposition; paksa download blob (lintas browser)
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = ""; // guna filename dari header
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert("Export failed: " + e.message);
+      }
     };
 
     // ===== Metrics =====
@@ -160,7 +175,7 @@
         if (!res.ok) return;
         const m = await res.json();
 
-        // sokong kedua-dua bentuk: baru (snapshot) & lama
+        // bentuk baru vs lama
         const total = m.total ?? m.total_validations ?? 0;
         const avgSec = (m.avg_response_ms !== undefined)
             ? (Number(m.avg_response_ms) / 1000)
@@ -179,9 +194,7 @@
               }).join("") + "</ul>"
           : "<b>Last:</b> <em>empty</em>";
         document.getElementById('last-wallets').innerHTML = listHtml;
-      } catch {
-        // biar senyap kalau metrics endpoint tak wujud
-      }
+      } catch { /* ignore to keep UI clean */ }
     }
     updateMetrics();
   </script>
