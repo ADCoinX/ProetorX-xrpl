@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import os
-import re
+import os, re, time
 from io import BytesIO
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import (
-    HTMLResponse,
-    FileResponse,
-    StreamingResponse,
-    JSONResponse,
-    Response,
+    HTMLResponse, FileResponse, StreamingResponse, JSONResponse, Response
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +23,7 @@ app = FastAPI(
     description="XRPL Wallet Validation powered by ADC CryptoGuard",
 )
 
-# ---- CORS (boleh ketatkan ikut domain kau) ----
+# ---- CORS ----
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,7 +31,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-# ---- Security headers + CSP (allow inline script & same-origin fetch) ----
+# ---- Security headers + CSP ----
 @app.middleware("http")
 async def security_headers_mw(request: Request, call_next):
     resp: Response = await call_next(request)
@@ -45,10 +40,8 @@ async def security_headers_mw(request: Request, call_next):
     resp.headers.setdefault("Referrer-Policy", "no-referrer")
     resp.headers.setdefault(
         "Content-Security-Policy",
-        "default-src 'self'; "
-        "img-src 'self' data:; "
-        "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; "
+        "default-src 'self'; img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
         "connect-src 'self';"
     )
     return resp
@@ -60,7 +53,6 @@ xrpl_handler = XRPLHandler()
 def index():
     return FileResponse(os.path.join("templates", "index.html"))
 
-# hardened static serving
 app.mount("/static", StaticFiles(directory="static", html=False), name="static")
 
 @app.get("/healthz")
@@ -80,18 +72,28 @@ async def validate_wallet(request: Request):
       "rwa_status": { "status": "in-development" }
     }
     """
+    start = time.perf_counter()
+
     data = await request.json()
     wallet_raw = data.get("wallet", "")
     wallet = sanitize_wallet_input(wallet_raw)
     if not wallet:
         raise HTTPException(status_code=400, detail="Invalid wallet address.")
 
-    xrpl_data = xrpl_handler.validate_wallet(wallet)
+    # XRPL fetch (guarded)
+    try:
+        xrpl_data = xrpl_handler.validate_wallet(wallet)
+    except Exception as e:
+        # Fallback: return 502 to signal upstream issue
+        raise HTTPException(status_code=502, detail=f"XRPL lookup failed: {e}")
+
     risk = score_wallet_risk(xrpl_data)
     rwa_status = rwa_check(wallet)
 
+    # metrics (duration in ms)
+    elapsed_ms = (time.perf_counter() - start) * 1000.0
     try:
-        log_event(wallet, risk)
+        log_event(wallet, risk, elapsed_ms)
     except Exception:
         pass
 
@@ -130,7 +132,7 @@ async def export_iso(request: Request):
 
     # safe filename
     safe_wallet = re.sub(r"[^A-Za-z0-9_-]", "_", wallet)[:40]
-    filename = f"pain001_${safe_wallet}.xml".replace("$", "")  # extra hardening
+    filename = f"pain001_{safe_wallet}.xml"
 
     return StreamingResponse(
         buf,
