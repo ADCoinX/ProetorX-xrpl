@@ -6,6 +6,13 @@
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="/static/px-logo.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    .badge{display:inline-flex;align-items:center;gap:.35rem;padding:.18rem .55rem;border-radius:999px;font-size:.85rem;font-weight:600}
+    .badge.low{background:#0f5132;color:#d1f7e3;border:1px solid #198754}
+    .badge.med{background:#664d03;color:#ffe8a1;border:1px solid #ffcd39}
+    .badge.high{background:#842029;color:#ffd1d6;border:1px solid #dc3545}
+    .flag-chip{display:inline-block;margin:.1rem .25rem 0 0;padding:.12rem .45rem;border-radius:.5rem;background:#2b2b2b;border:1px solid #3a3a3a;font-size:.8rem}
+  </style>
 </head>
 <body>
   <header>
@@ -76,9 +83,31 @@
     const isXRPLAddr = (a) => {
       if (!a || a[0] !== "r") return false;
       const len = a.length;
-      // classic XRPL address 25–35 chars (base58)
       return len >= 25 && len <= 35;
     };
+
+    // Risk score → kategori + badge + ikon
+    function riskBadge(score) {
+      if (score === null || score === undefined || isNaN(score)) return " -";
+      const s = Number(score);
+      let cls = "low", label = "Low Risk", icon = "✅";
+      if (s > 60) { cls = "high"; label = "High Risk"; icon = "⛔"; }
+      else if (s > 20) { cls = "med"; label = "Medium Risk"; icon = "⚠️"; }
+      return `${s} <span class="badge ${cls}">${icon} ${label}</span>`;
+    }
+
+    // Flags bitmask → chips
+    function flagsChips(flags) {
+      if (flags === null || flags === undefined || isNaN(flags)) return "-";
+      const f = Number(flags);
+      const chips = [];
+      if (f & 0x00020000) chips.push("DefaultRipple");   // 131072
+      if (f & 0x00010000) chips.push("RequireDestTag");  // 65536
+      if (f & 0x00080000) chips.push("DisallowXRP");     // 524288
+      if (f & 0x00400000) chips.push("GlobalFreeze");    // 4194304
+      if (!chips.length) return String(f);
+      return `${f} ` + chips.map(c => `<span class="flag-chip">${c}</span>`).join("");
+    }
 
     // ===== Form submit: /validate =====
     document.getElementById('wallet-form').onsubmit = async (e) => {
@@ -107,28 +136,24 @@
         } else {
           const data = await res.json();
 
-          // ---- Map fields dari backend (sokong nama lama & baru) ----
-          const risk = data.risk_score?.score ?? data.risk_score ?? null;
+          const riskVal = data.risk_score?.score ?? data.risk_score ?? null;
 
           const xrpl = data.xrpl || {};
           const balanceXrp =
-            xrpl.balance_xrp ??  // preferred (XRP float)
-            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null); // fallback drops→XRP
+            xrpl.balance_xrp ??
+            (xrpl.balance !== undefined ? (Number(xrpl.balance) / 1_000_000) : null);
 
           const flags = xrpl.flags ?? null;
-          // Note: OwnerCount ≠ total transactions; ini objek dimiliki (trustlines/offers)
           const txCount = xrpl.tx_count ?? xrpl.owner_count ?? null;
 
-          // ---- Render (0 kekal 0) ----
-          document.getElementById('risk-score').innerText = "Risk Score: " + (risk ?? "-");
-          document.getElementById('flags').innerText = "Flags: " + (flags ?? "-");
+          document.getElementById('risk-score').innerHTML = "Risk Score: " + riskBadge(riskVal);
+          document.getElementById('flags').innerHTML = "Flags: " + flagsChips(flags);
           document.getElementById('balance').innerText = "Balance: " + fmtXRP(balanceXrp);
           document.getElementById('tx-count').innerText = "Transactions: " + fmtInt(txCount);
           document.getElementById('rwa-status').innerText = "RWA: " + (data.rwa_status?.status ?? "in-development");
 
           result.innerHTML = '<span class="success">Wallet validated successfully.</span>';
 
-          // refresh metrics
           await updateMetrics();
         }
       } catch (ex) {
@@ -155,12 +180,11 @@
           catch { alert("Export failed"); }
           return;
         }
-        // Backend set Content-Disposition; paksa download blob (lintas browser)
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = ""; // guna filename dari header
+        a.download = "";
         document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
       } catch (e) {
@@ -175,7 +199,6 @@
         if (!res.ok) return;
         const m = await res.json();
 
-        // bentuk baru vs lama
         const total = m.total ?? m.total_validations ?? 0;
         const avgSec = (m.avg_response_ms !== undefined)
             ? (Number(m.avg_response_ms) / 1000)
@@ -194,7 +217,7 @@
               }).join("") + "</ul>"
           : "<b>Last:</b> <em>empty</em>";
         document.getElementById('last-wallets').innerHTML = listHtml;
-      } catch { /* ignore to keep UI clean */ }
+      } catch { }
     }
     updateMetrics();
   </script>
