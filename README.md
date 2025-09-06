@@ -58,17 +58,15 @@ PX bridges this gap by **exporting XRPL wallet data directly in ISO 20022 XML**:
 ## Architecture
 
 ```mermaid
-flowchart TD
+graph TD
     A[User Input: Wallet Address] --> B[Frontend UI (HTML/JS + Tailwind)]
     B --> C[Backend API (FastAPI, stateless)]
     C --> D[XRPL Handler (3x RPC with rotation/fallback)]
     D --> E[Risk Engine (AI/ML risk scoring)]
-    D --> F[ISO 20022 Export (pain.001 / pacs.008)]
-    E --> G[RWA Module (stub → v2 eligibility)]
-    F --> G
-    G --> H[Metrics & Logs (JSON, anonymized)]
+    E --> F[ISO 20022 Export (pain.001 / pacs.008)]
+    F --> G[RWA Module (stub → v2 eligibility)]
+    E --> H[Metrics & Logs (JSON, anonymized)]
     H --> I[Dashboard (Validations, Scores, ISO files)]
-```
 
 ---
 
