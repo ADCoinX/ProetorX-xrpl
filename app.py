@@ -1,22 +1,24 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware import Middleware
-from starlette.middleware.sessions import SessionMiddleware
 from xrpl_handler import XRPLHandler
 from risk_engine import score_wallet_risk
 from iso_export import generate_iso20022_xml
 from rwa_handler import rwa_check
 from utils import log_event, get_metrics, sanitize_wallet_input
 import uvicorn
+import os
 
 app = FastAPI(
     title="PX – ProetorX Wallet Validator",
-    description="XRPL Wallet Validation powered by ADC CryptoGuard",
-    middleware=[
-        Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]),
-        Middleware(SessionMiddleware, secret_key="px-stateless-session") # For stateless operation, no sensitive data stored
-    ]
+    description="XRPL Wallet Validation powered by ADC CryptoGuard"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 xrpl_handler = XRPLHandler()
@@ -29,6 +31,8 @@ def index():
 async def validate_wallet(request: Request):
     data = await request.json()
     wallet = sanitize_wallet_input(data.get("wallet", ""))
+    print("Wallet input received:", data.get("wallet", ""))
+    print("Sanitized wallet:", wallet)
     if not wallet:
         raise HTTPException(status_code=400, detail="Invalid wallet address.")
     xrpl_data = xrpl_handler.validate_wallet(wallet)
@@ -58,4 +62,5 @@ def static_files(file_path: str):
     return FileResponse(f"static/{file_path}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
