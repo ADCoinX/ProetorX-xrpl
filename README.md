@@ -18,7 +18,7 @@
 
 **ProetorX (PX)** is an open-source, compliance-first, stateless XRPL wallet validator and risk assessment engine powered by ADC CryptoGuard.
 
-PX is designed for **Ripple XRPL Grants** and the **BDAX Accelerator**. It validates XRPL wallets, scores risk with AI, exports **ISO 20022** XML, and includes readiness for **Real-World Asset (RWA)** tokenization.
+PX is designed for **Ripple XRPL Grants** and the **BDAX Accelerator**. It validates XRPL wallets, scores risk with AI, exports **ISO 20022** XML, and is ready for **Real-World Asset (RWA)** tokenization.
 
 > PX is **not** a blockchain validator node — it is a **compliance layer**:
 > - Validates and risk-scores wallets  
@@ -29,13 +29,13 @@ PX is designed for **Ripple XRPL Grants** and the **BDAX Accelerator**. It valid
 
 ## Features
 
-- **XRPL Wallet Validation** — balance, flags, owner count; robust API fallback  
-- **AI Risk Scoring** — scikit-learn stub (v1); pluggable model (v2)  
-- **ISO 20022 Export** — generate `pain.001` (and `pacs.008` roadmap) for compliance/reporting  
-- **RWA Module** — eligibility stub (v2 expansion)  
-- **Metrics Dashboard** — cumulative validations, avg response time, last items (anonymized)  
-- **Stateless & Secure** — no sensitive data stored; strict headers/CORS; TLS-ready  
-- **Modern UI** — responsive dark/light, clean components, quality badges  
+- **XRPL Wallet Validation:** balance, flags, owner count; robust API fallback  
+- **AI Risk Scoring:** scikit-learn stub (v1); pluggable model (v2)  
+- **ISO 20022 Export:** generate `pain.001` (and `pacs.008` roadmap) for compliance/reporting  
+- **RWA Module:** eligibility stub (v2 expansion)  
+- **Metrics Dashboard:** cumulative validations, avg response time, last items (anonymized)  
+- **Stateless & Secure:** no sensitive data stored; strict headers/CORS; TLS-ready  
+- **Modern UI:** responsive dark/light, clean components, quality badges  
 
 ---
 
@@ -67,6 +67,7 @@ graph TD
     F --> G[RWA Module (stub → v2 eligibility)]
     E --> H[Metrics & Logs (JSON, anonymized)]
     H --> I[Dashboard (Validations, Scores, ISO files)]
+```
 
 ---
 
@@ -76,7 +77,6 @@ graph TD
   Builder of ADC CryptoGuard, GuardianX (Kadena), HGuard (Hedera), and ProetorX (XRPL). Focus: blockchain safety, compliance, ISO 20022.
 - **Muhammad Mustafa, CPA, CFE, CMA, CIA** — Co-Founder (Governance & Compliance)  
   Chartered Accountant & Licensed Auditor. Expertise: governance, ISO frameworks, financial intelligence.
-
 
 ---
 
@@ -96,13 +96,11 @@ graph TD
 - **Financial Institutions:** Bridge XRPL data to banking systems (ISO 20022)
 - **Developers / Communities:** Tooling for XRPL Malaysia & regional ecosystems
 
-
 ---
 
 ## Traction
 
 **Current traction (early stage):**
-
 - ✅ MVP deployed — live demo running on Render  
 - ✅ Open-source repo active on GitHub with SonarCloud quality scans  
 - ✅ 50+ repo clones and 200+ unique visitors (GitHub traffic, August 2025)  
@@ -121,8 +119,6 @@ graph TD
 - ISO 20022 `pain.001` XML export  
 - Stateless backend (FastAPI) deployed on Render demo  
 
----
-
 **Phase 2 (After funding, 3–6 months):**  
 - Upgrade to supervised ML model (XGBoost / PyTorch with explainability)  
 - RWA eligibility v1 + blacklist heuristics + destination tag checks  
@@ -139,11 +135,9 @@ graph TD
 - Multi-chain expansion (ETH, Hedera, Kadena)  
 - Pilots with banks, regulators, and RegTech providers in Malaysia & SEA  
 
----
-
 > ✅ Current MVP shows feasibility.  
 > 🚀 Grant funding will accelerate PX into a production-grade **compliance bridge** for XRPL and beyond.
-> 
+
 ---
 
 ## Monetization
