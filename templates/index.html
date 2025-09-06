@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>PX – ProetorX Wallet Validator</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="/static/px-logo.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <header>
+        <img src="/static/px-logo.png" alt="PX Logo" id="logo">
+        <h1>PX – ProetorX Wallet Validator</h1>
+        <p>Verified First, Trusted Later</p>
+    </header>
+    <main>
+        <section id="wallet-input">
+            <input type="text" id="wallet" placeholder="XRPL Wallet Address">
+            <button id="validate-btn">Validate Wallet</button>
+            <button id="iso-btn">Export ISO XML</button>
+            <button id="rwa-btn" disabled>RWA Check (in development)</button>
+        </section>
+        <section id="results">
+            <h2>Results</h2>
+            <div id="risk-score"></div>
+            <div id="flags"></div>
+            <div id="balance"></div>
+            <div id="tx-count"></div>
+            <div id="rwa-status"></div>
+        </section>
+        <section id="metrics">
+            <h2>Metrics Dashboard</h2>
+            <div id="total-validations"></div>
+            <div id="avg-response-time"></div>
+            <div id="last-wallets"></div>
+        </section>
+    </main>
+    <footer>
+        Powered by ADC CryptoGuard. No sensitive data stored.
+    </footer>
+    <script>
+        // JS Stub: handle API calls and update UI
+        document.getElementById('validate-btn').onclick = async () => {
+            const wallet = document.getElementById('wallet').value;
+            const res = await fetch('/validate', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wallet})
+            });
+            const data = await res.json();
+            document.getElementById('risk-score').innerText = "Risk Score: " + data.risk_score.score;
+            document.getElementById('flags').innerText = "Flags: " + data.xrpl.flags;
+            document.getElementById('balance').innerText = "Balance: " + data.xrpl.balance;
+            document.getElementById('tx-count').innerText = "Transactions: " + data.xrpl.tx_count;
+            document.getElementById('rwa-status').innerText = "RWA: " + data.rwa_status.status;
+        };
+        document.getElementById('iso-btn').onclick = async () => {
+            const wallet = document.getElementById('wallet').value;
+            const res = await fetch('/export_iso', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({wallet})
+            });
+            const data = await res.json();
+            alert("ISO 20022 XML:\n" + data.iso_xml);
+        };
+        async function updateMetrics() {
+            const res = await fetch('/metrics');
+            const data = await res.json();
+            document.getElementById('total-validations').innerText = "Total Validations: " + data.total_validations;
+            document.getElementById('avg-response-time').innerText = "Avg Response Time: " + data.average_response_time + "s";
+            document.getElementById('last-wallets').innerText = "Last 5 Wallets: " + data.last_5_wallets.map(x=>x.wallet).join(', ');
+        }
+        updateMetrics();
+    </script>
+</body>
+</html>
