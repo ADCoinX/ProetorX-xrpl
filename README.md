@@ -72,12 +72,18 @@ flowchart TD
 
 ---
 
-## Team
+### Team & Governance
 
-- **Muhammad Yusri Adib** — Founder, ADCX Lab  
-  Builder of ADC CryptoGuard, GuardianX (Kadena), HGuard (Hedera), and ProetorX (XRPL). Focus: blockchain safety, compliance, ISO 20022.
-- **Muhammad Mustafa, CPA, CFE, CMA, CIA** — Co-Founder (Governance & Compliance)  
-  Chartered Accountant & Licensed Auditor. Expertise: governance, ISO frameworks, financial intelligence.
+**Core Team**
+- **Muhammad Yusri Adib — Founder / CTO**  
+  Focus: architecture, AI risk engine, XRPL integrations, ISO 20022 exporter.  
+  Commitment: Full-time.  
+  [LinkedIn](http://linkedin.com/in/yusri-adib-455aa8b7)
+
+- **Muhammad Mustafa, CPA, CFE, CMA, CIA — Co-Founder / Finance & Compliance Lead**  
+  Focus: governance, audit & reporting, budget control, regulatory alignment.  
+  Commitment: Full-time.  
+  [LinkedIn](http://linkedin.com/in/muhammad-mustafa-abdulmanaf)
 
 ---
 
